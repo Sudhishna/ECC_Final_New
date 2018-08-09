@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% load staticfiles %}
+{% block content %}
+<div class="centered_box_75">
+
+    <h2>Glance Disk Images</h2>
+    <table>
+        <tr>
+            <th>Name</th>
+            <th>Size</th>
+            <th>Options</th>
+        </tr>
+        {% for image in image_list %}
+        <tr>
+            <td>
+                {{ image.name }}
+            </td>
+            <td>
+                {{ image.description }}
+            </td>
+            <td>
+                <a href='/images/importFromGlance/{{ image.id }}'>Import</a>
+                &nbsp;
+            </td>
+
+        </tr>
+        {% endfor %}
+    </table>
+    <br/>
+    <p>Importing images from Glance will create a DB entry and allow you associate an image 'type' from the Edit
+        screen.
+    </p>
+    <br/>
+    <p>
+        <a href="#" onclick="javascript: window.open('{{ global_config.openstack_horizon_url }}/admin/images')">
+            Openstack Glance Image details can be found here.
+        </a>
+    </p>
+</div>
+{% endblock %}

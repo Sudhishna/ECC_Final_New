@@ -1,0 +1,32 @@
+language: python
+sudo: true
+
+python:
+  - "2.7"      
+  - "3.4"
+  - "3.5"
+  - "3.6"
+
+addons:
+  apt:
+    packages:
+    - python-dev
+    - libxml2-dev
+    - libxslt1-dev
+
+install:
+  - "pip install -r development.txt"
+  - "python setup.py install --prefix=$VIRTUAL_ENV"
+
+before_script:
+  - export PYTHONPATH=$VIRTUAL_ENV/lib/python$TRAVIS_PYTHON_VERSION/site-packages
+  - cd tests/unit
+
+script:
+  nosetests -v --with-coverage --cover-package=jnpr.jsnapy --cover-inclusive -a unit
+
+after_success:
+  coveralls
+
+notifications:
+  email: false

@@ -1,0 +1,6 @@
+tests_include:
+  - test_vlans
+
+# for simple, one test using command
+test_vlans:
+  - command: show vlans

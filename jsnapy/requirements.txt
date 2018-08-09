@@ -1,0 +1,6 @@
+junos-eznc
+colorama
+configparser
+pyparsing
+icdiff
+future

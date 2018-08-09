@@ -1,0 +1,77 @@
+from jnpr.jsnapy import SnapAdmin
+from pprint import pprint
+from jnpr.junos import Device
+import difflib
+
+def invokeTests(vm_name):
+
+    js = SnapAdmin()
+
+    config_file = """
+    hosts:
+      - device: 192.168.122.9
+        username: ubuntu
+    tests:
+      - test_diff.yml
+    """
+
+    #js.snap(config_file, "pre")
+    js.snap(config_file, "post")
+    chk = js.check(config_file, "pre", "post")
+
+
+    devip = ""
+    failed = 0
+    test_name = ""
+    for check in chk:
+        devip = check.device
+        failed = check.no_failed
+        if not not check.test_results.keys():
+            test_name = check.test_results.keys()[0].replace(' ','_')
+
+    pre_file = '/home/ubuntu/jsnapy/snapshots/' + devip + '_pre_' + test_name + '.xml'
+    post_file = '/home/ubuntu/jsnapy/snapshots/' + devip + '_post_' + test_name + '.xml'
+
+    if failed != 0:
+        with open(pre_file, 'r') as hosts0:
+            with open(post_file, 'r') as hosts1:
+                diff = difflib.unified_diff(
+                    hosts0.readlines(),
+                    hosts1.readlines(),
+                    fromfile='hosts0',
+                    tofile='hosts1',
+                )
+                #for line in diff:
+                #    print line
+            lines = list(diff)[2:]
+    print lines
+    added = [line[1:] for line in lines if line[0] == '+']
+
+    print 'additions:'
+    additions = ""
+    for line in added:
+        additions += line
+    print additions
+    vlan_text = ""
+    if additions:
+        tree = xml.etree.ElementTree.fromstring(additions)
+        print tree
+        for vlan in tree.findall('l2ng-l2rtb-vlan-name'):
+            text = vlan.text
+            vlan_text = text.split("vlan")[1]
+            print vlan_text
+
+        dict = {'vqfx3': {'vlanid':vlan_text}}
+        template_file = '/home/ubuntu/Evolved_Campus_Core_Automation/Config/QFX_vlan_addition.conf'
+        helpers.load_template_config(devip,"spine",dict,template_file)
+
+    if failed != 0:
+        with open(post_file) as f:
+            lines = f.readlines()
+            lines1 = ""
+            for line in lines:
+                lines1 += line
+            with open(pre_file, "w") as f1:
+                f1.writelines(lines1) 
+
+

@@ -1,0 +1,22 @@
+logrotate state -- version 2
+"/home/ubuntu/.cache/upstart/dbus.log" 2018-7-26-7:35:2
+"/home/ubuntu/.cache/upstart/indicator-sound.log" 2018-5-29-10:10:47
+"/home/ubuntu/.cache/upstart/indicator-keyboard.log" 2018-5-17-7:35:9
+"/home/ubuntu/.cache/upstart/update-notifier-crash-_var_crash_salt-master.0.crash.log" 2018-7-14-7:35:2
+"/home/ubuntu/.cache/upstart/window-stack-bridge.log" 2018-5-29-10:10:47
+"/home/ubuntu/.cache/upstart/unity-settings-daemon.log" 2018-5-29-10:10:47
+"/home/ubuntu/.cache/upstart/unity7.log" 2018-8-7-7:35:2
+"/home/ubuntu/.cache/upstart/hud.log" 2018-7-28-7:35:2
+"/home/ubuntu/.cache/upstart/ssh-agent.log" 2018-5-29-10:10:47
+"/home/ubuntu/.cache/upstart/indicator-printers.log" 2018-5-17-7:35:9
+"/home/ubuntu/.cache/upstart/bamfdaemon.log" 2018-5-29-10:10:47
+"/home/ubuntu/.cache/upstart/at-spi2-registryd.log" 2018-5-29-10:10:47
+"/home/ubuntu/.cache/upstart/gpg-agent.log" 2018-5-29-10:10:47
+"/home/ubuntu/.cache/upstart/update-notifier-crash-_var_crash__usr_sbin_libvirtd.0.crash.log" 2018-5-17-7:35:9
+"/home/ubuntu/.cache/upstart/upstart-event-bridge.log" 2018-5-29-10:10:47
+"/home/ubuntu/.cache/upstart/update-notifier-release.log" 2018-5-29-10:10:47
+"/home/ubuntu/.cache/upstart/unity-panel-service.log" 2018-8-7-7:35:2
+"/home/ubuntu/.cache/upstart/*.log" 2018-5-12-7:0:0
+"/home/ubuntu/.cache/upstart/gnome-keyring-ssh.log" 2018-5-29-10:10:47
+"/home/ubuntu/.cache/upstart/unity-panel-service-lockscreen.log" 2018-5-25-7:35:2
+"/home/ubuntu/.cache/upstart/update-notifier-cds.log" 2018-5-30-7:35:3

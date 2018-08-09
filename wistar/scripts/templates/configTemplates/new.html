@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% load staticfiles %}
+{% block scripts %}
+    <script type="text/javascript">
+    function validateForm() {
+        var d = $('#id_description');
+        var n = $('#id_name');
+        var f = $('#id_template');
+        if (n.val() == "") {
+            alert("Please enter a name!");
+            n.focus();
+            return false;
+        }
+        if (d.val() == "") {
+            alert("Please enter a description!");
+            d.focus();
+            return false;
+        }
+        if (f.val() == "") {
+            alert("Please enter config information!");
+            f.focus();
+            return false;
+        }
+    }
+    </script>
+{% endblock %}
+{% block content %}
+<div class="centered_box_75">
+    <h2>New Template</h2>
+    <form method="post" enctype="multipart/form-data" onsubmit="javascript: return validateForm();"
+          action="/scripts/create/">
+        <table>
+            {{ template_form.as_table }}
+            {% csrf_token %}
+            <tr>
+                 <td colspan="2">
+                    <input type="submit"/>
+                </td>
+            </tr>
+        </table>
+    </form>
+</div>
+{% endblock %}

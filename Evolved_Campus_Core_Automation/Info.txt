@@ -1,0 +1,4 @@
+bgp_router_id:10.0.0.1 - 10.0.0.100
+bgpasn:111 - 210
+interface_ip:192.168.210.0 - 192.168.210.251
+netmask:30

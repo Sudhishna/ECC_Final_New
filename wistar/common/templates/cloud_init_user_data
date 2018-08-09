@@ -1,0 +1,28 @@
+#cloud-config
+hostname: {{ config.hostname }}
+debug: True
+ssh_pwauth: True
+disable_root: False
+password: {{ config.password }}
+chpasswd: 
+    list: |
+        root:{{ config.password }}
+        {{ config.ssh_user }}:{{config.password }}
+    expire: False
+users:
+    - name: {{ config.ssh_user }}
+      ssh-authorized-keys:
+        - {{ config.ssh_key }}
+      groups: sudo
+      shell: /bin/bash
+    - name: root
+      ssh-authorized-keys:
+        - {{ config.ssh_key }}
+runcmd:
+    - sed -i'.orig' -e's/without-password/yes/' /etc/ssh/sshd_config
+    - sed -i'.orig' -e's/prohibit-password/yes/' /etc/ssh/sshd_config
+    - service sshd restart
+
+
+
+

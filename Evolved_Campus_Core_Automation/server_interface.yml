@@ -1,0 +1,26 @@
+---
+- name: Get Ansible to work on bare Ubuntu 16.04
+  hosts: all
+  gather_facts: no
+  tasks:
+  - name: Clean artifact path
+    file:
+      state: absent
+      path: "/etc/network/interfaces.d/50-cloud-init.cfg"
+    become: yes
+  - copy:
+      content: "{{ interface_config }}"
+      dest: "/etc/network/interfaces.d/50-cloud-init.cfg"
+    become: yes
+  - name: Restart the new network interface
+    shell: "ifdown --ignore-errors ens3 && ifup --ignore-errors ens3"
+    become: yes
+  - name: Restart the new network interface
+    shell: "ip addr flush dev ens4"
+    become: yes
+  - name: Restart the new network interface
+    shell: "ifdown --ignore-errors ens4 && ifup --ignore-errors ens4"
+    become: yes
+  - name: Restart the new network interface
+    shell: "ifdown --ignore-errors ens4 && ifup --ignore-errors ens4"
+    become: yes

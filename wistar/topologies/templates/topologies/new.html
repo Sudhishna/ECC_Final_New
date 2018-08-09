@@ -1,0 +1,989 @@
+
+{% extends "base.html" %}
+{% load staticfiles %}
+{% block scripts %}
+    <script type="text/javascript" src="{% static 'js/jquery-ui.js' %}"></script>
+    <!--  <script type="text/javascript" src="{% static 'js/jquery.layout.js' %}"></script> -->
+    <script type="text/javascript" src="{% static 'js/jquery.autoresize.js' %}"></script>
+    <script type="text/javascript" src="{% static 'js/jquery-touch_punch.js' %}"></script>
+    <script type="text/javascript" src="{% static 'js/jquery.contextmenu.js' %}"></script>
+    <script type="text/javascript" src="{% static 'js/patched_raphael.js' %}"></script>
+    <script type="text/javascript" src="{% static 'js/rgbcolor.js' %}"></script>
+
+    <script type="text/javascript" src="{% static 'js/patched_canvg.js' %}"></script>
+    <script type="text/javascript" src="{% static 'js/patched_Class.js' %}"></script>
+    <script type="text/javascript" src="{% static 'js/json2.js' %}"></script>
+
+    <script type="text/javascript" src="{% static 'js/pathfinding-browser.min.js' %}"></script>
+    <script type="text/javascript" src="{% static 'js/StackBlur.js' %}"></script>
+
+    <script type="text/javascript" src="{% static 'js/shifty.js' %}"></script>
+    <script type="text/javascript" src="{% static 'js/draw2d.js' %}"></script>
+    <!-- <script type="text/javascript" src="{% static 'js/draw2d_core.js' %}"></script> -->
+
+    <script type="text/javascript" src="{% static 'js/vm_types/wistarVm.js' %}"></script>
+    <script type="text/javascript" src="{% static 'js/vm_types/wistarStandalone.js' %}"></script>
+    <script type="text/javascript" src="{% static 'js/vm_types/wistarSetParent.js' %}"></script>
+    <script type="text/javascript" src="{% static 'js/vm_types/wistarSetChild.js' %}"></script>
+
+    <script type="text/javascript" src="{% static 'js/vm_types/generic.js' %}"></script>
+    <script type="text/javascript" src="{% static 'js/vm_types/linux.js' %}"></script>
+    <script type="text/javascript" src="{% static 'js/vm_types/ubuntu16.js' %}"></script>
+
+    <script type="text/javascript" src="{% static 'js/vm_types/space.js' %}"></script>
+    <script type="text/javascript" src="{% static 'js/vm_types/vmx.js' %}"></script>
+    <script type="text/javascript" src="{% static 'js/vm_types/vsrx.js' %}"></script>
+    <script type="text/javascript" src="{% static 'js/vm_types/vre.js' %}"></script>
+    <script type="text/javascript" src="{% static 'js/vm_types/vre_15.js' %}"></script>
+
+    <script type="text/javascript" src="{% static 'js/vm_types/vrr.js' %}"></script>
+
+    <script type="text/javascript" src="{% static 'js/vm_types/vpfe.js' %}"></script>
+    <script type="text/javascript" src="{% static 'js/vm_types/vriot.js' %}"></script>
+
+    <script type="text/javascript" src="{% static 'js/vm_types/vqfxRe.js' %}"></script>
+    <script type="text/javascript" src="{% static 'js/vm_types/vqfxCosim.js' %}"></script>
+    <script type="text/javascript" src="{% static 'js/vm_types/cloud.js' %}"></script>
+
+    <script type="text/javascript" src="{% static 'js/topologySelectionListener.js' %}"></script>
+
+    <script type="text/javascript" src="{% static 'js/topology_utils.js' %}"></script>
+
+    <script type="text/javascript">
+    var canvas;
+    var lastX = -50;
+    var lastY = 25;
+
+    var vmxCount = 1;
+    var instanceArray = []
+
+    // shortcut for debugging purposes
+    // open debug panel and examine s to see currently selected object
+    var s = "";
+
+    // keep track of how many icons we've added to the canvas
+    // perform simple wrapping if above 10
+    var iconWrapLimit = 5;
+    var iconCount = 0;
+    var iconOffset = 135;
+
+    var internalCloudCounter = 0;
+    var externalCloudCounter = 0;
+
+    var internalCloudInitialOffset = 0;
+    var externalCloudInitialOffset = 0;
+
+    var selectedObject;
+
+    var vm_types = $.parseJSON('{{ vm_types|safe }}');
+
+    var images = $.parseJSON('{{ image_list_json|safe }}');
+
+    var allocated_ips = $.parseJSON('{{ allocated_ips|safe }}');
+    var dhcp_reservations = $.parseJSON('{{ dhcp_reservations|safe }}');
+
+    // check if an IP address is currently available
+    function checkIp() {
+        var ip = jQuery('#topoIconIp').val();
+
+        if (! ip.match('^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$')) {
+            alert('IP format is not valid!');
+            return False;
+        }
+
+        var url = "/ajax/checkIp/";
+
+        var params = {
+            'ip' : ip
+        };
+
+        var success = function(response) {
+            data = eval(response);
+
+            if (data["result"] == false) {
+                console.log("ip is not currently pingable");
+            } else {
+                alert("IP Address " + ip + " is already in use!");
+            }
+        };
+        jQuery.post(url, params, success);
+    }
+
+    function nextIp() {
+
+        for(i=ip_floor;i<255;i++) {
+            if ($.inArray(i, allocated_ips) < 0) {
+                ip_floor = i + 1;
+                return '{{ global_config.management_prefix }}' + i;
+            } else {
+                console.log(i + ' is taken');
+            }
+        }
+        alert("Out of usable IP addresses! You should probably delete some old topologies! \
+        Returning overlapping non reserved IP address");
+        for(i=dhcp_floor;i<255;i++) {
+            if ($.inArray(i, dhcp_reservations) < 0) {
+                dhcp_floor = i + 1;
+                return '{{ global_config.management_prefix }}' + i;
+            } else {
+                console.log(i + ' is currently reserved!');
+            }
+        }
+    }
+
+    // get next available ip
+    // FIXME - does not try to wrap around subnets
+    // FIXME - always assume KVM default subnet
+    // FIXME - doesn't account for IPs used in this topology already!
+    function next_unreserved_ip() {
+
+        default_octets = '{{ global_config.management_prefix }}'.split('.');
+        d = default_octets;
+        octets = [d[0], d[1], d[2], ''];
+
+        console.log(octets);
+
+        var url = "/ajax/nextIp/";
+
+        var success = function(response) {
+            data = eval(response);
+
+            if (data["result"] == false) {
+                console.log('No more IPs allowed!');
+                return null;
+            } else {
+                console.log(data);
+                octets[3] = data["result"];
+                console.log(octets);
+                return octets.join('.');
+            }
+        };
+        jQuery.get(url, success);
+    }
+
+
+    // export topology as JSON and stuff it back in the
+    // json div element for later retrieval and storage
+    function exportJson() {
+        // Create a JSON writer and convert it into a JSON-String representation.
+
+        var writer = new draw2d.io.json.Writer();
+
+        writer.marshal(canvas, function(json) {
+            // convert the json object into string representation
+            var jsonTxt = JSON.stringify(json, null, 2);
+            // insert the json string into a DIV for preview or post
+            // it via ajax to the server....
+            jQuery("#json").val(jsonTxt);
+        });
+    }
+
+    // export and submit form
+    function updateTopology() {
+        alert('You may need to redeploy this topology after this update!');
+        exportJson();
+        var j = jQuery("#json").val();
+        if (j == "[]") {
+            alert('Refusing to update blank topology!');
+            return;
+        }
+        jQuery('#topoForm').submit();
+    }
+
+    // export and submit form
+    function updateDebug() {
+        jQuery('#json').val(jQuery('#debug').val());
+        jQuery('#topoForm').submit();
+    }
+
+    // export and submit form
+    function saveTopology() {
+        exportJson();
+        var j = jQuery("#json").val();
+        if (j == "[]") {
+            alert('Refusing to save blank topology!');
+            return;
+        }
+        jQuery('#topoForm').submit();
+    }
+
+    // simple validation against Junos password rules
+    function checkPass(pw) {
+        if(pw != "") {
+            upper = pw.match('[A-Z]');
+            lower = pw.match('[a-z]');
+            digit = pw.match('[0-9]');
+
+            if (upper && lower && digit) {
+                console.log('password accepted');
+            } else {
+                alert('Password does not meet complexity requirements');
+            }
+        } else {
+                alert('Password is required');
+        }
+
+    }
+
+    function showOverlay(overlay_id) {
+        var sf = jQuery(overlay_id);
+        sf.addClass("screen-overlay");
+        sf.css("display", "");
+    }
+
+    function hideOverlay(overlay_id) {
+        var sf = jQuery(overlay_id);
+        sf.removeClass("screen-overlay");
+        sf.css("display", "none");
+    }
+
+    function closeOverlay() {
+        var cto = jQuery('#overlay');
+        cto.empty();
+        cto.removeClass("screen-overlay");
+        cto.remove();
+    }
+
+    function simpleAjaxRequest(url, params, successMessage) {
+        var doc = jQuery(document.documentElement);
+        doc.css('cursor', 'progress');
+
+        var post = jQuery.post(url, params, function(response) {
+            data = eval(response);
+            if (data["result"] == false || data["result"] == "false") {
+                if(data["message"] != undefined) {
+                    alert(data['message']);
+                } else {
+                    alert('Could not complete request');
+                }
+            } else {
+                    alert(successMessage);
+            }
+        });
+
+        post.fail(function() {
+            alert('Could not perform request!');
+        });
+
+        post.always(function() {
+            doc.css('cursor', '');
+        });
+    }
+
+    /* UI related function */
+    var currentSelection = "None";
+
+    function deleteLabel() {
+
+        // grab the selected object id
+        // this is always kept in a hidden form field for easy retrieval
+        var so = jQuery('#selectedObject').val();
+
+        // make sure it's not blank!
+        if (so != 0) {
+            var figure = canvas.getFigure(so);
+            if (figure.NAME == "draw2d.shape.basic.Label") {
+                canvas.remove(figure);
+                jQuery('#selectedObject').val("0");
+            }
+        }
+    }
+
+    function hideAllEditors() {
+        manuallyTogglePanel('jsonDebug', 'none');
+        manuallyTogglePanel('junosIconEditor', 'none');
+        manuallyTogglePanel('linuxIconEditor', 'none');
+        manuallyTogglePanel('connectionEditor', 'none');
+        manuallyTogglePanel('labelEditor', 'none');
+        manuallyTogglePanel('figureEditor', 'none');
+    }
+
+    function hideSelection() {
+        hideAllEditors();
+        currentSelection = "None";
+    }
+
+    function showDebug() {
+        currentSelection = "debug";
+        exportJson();
+        jQuery('#debug').val("");
+        jQuery('#debug').val(jQuery('#json').val());
+        showOverlay('#jsonDebug');
+    }
+
+    function showTopoEditor() {
+        manuallyTogglePanel('topoEditorForm', '');
+        manuallyTogglePanel('topoInfo', 'none');
+    }
+
+    function setSelectedObject(objectId) {
+        console.log("setting s to: " + objectId);
+        s = canvas.getFigure(objectId);
+        if (s == null) {
+            s = canvas.getLine(objectId);
+        }
+        jQuery('#selectedObject').val(objectId);
+        selectedObject = s;
+
+    }
+
+    function manuallyTogglePanel(el, v) {
+        var sel = '#' + el;
+        if(v == "none") {
+            if(jQuery(sel).css("display") == 'none' || jQuery(sel).css("display") == undefined) {
+                return;
+            }
+            jQuery(sel).css("display", "none");
+
+        } else {
+            jQuery(sel).css("display", "block");
+        }
+    }
+
+    function updateJunosIcon() {
+        var instance = canvas.getFigure(jQuery('#selectedObject').val());
+
+        instance.setIp(jQuery('#junosIconIp').val());
+        instance.setLabel(jQuery('#junosIconName').val());
+        instance.setPassword(jQuery('#junosIconPass').val());
+
+        instance.repaint();
+
+    }
+
+    function loadLabelEditor(figureId) {
+        if (currentSelection !== "labelEditor") {
+            hideAllEditors();
+            manuallyTogglePanel('labelEditor', '');
+            currentSelection = "labelEditor";
+        }
+        p = canvas.getFigure(figureId);
+        jQuery('#selectedLabel').val(figureId);
+        jQuery('#labelText').val(p.getText());
+        jQuery('#labelFontSize').val(p.fontSize);
+    }
+
+    function updateLabel() {
+        l = canvas.getFigure(jQuery('#selectedLabel').val());
+        l.setText(jQuery('#labelText').val());
+        l.setFontSize(jQuery('#labelFontSize').val());
+    }
+
+    function addExternalCloud() {
+        externalCloudCounter = externalCloudCounter + 1;
+        var label = jQuery('#externalCloudName').val();
+        var c = new draw2d.shape.node.externalCloud(label);
+        c.width = 100;
+        c.height = 100;
+        canvas.add(c, 385 + (externalCloudCounter * 60), 15 + (externalCloudCounter * 50));
+
+        hideOverlay('#add_bridge_form');
+    }
+
+    function addInternalCloud() {
+        if (internalCloudCounter >= 8) {
+            internalCloudInitialOffset += 200;
+            if(internalCloudInitialOffset >= 800) {
+                internalCloudInitialOffset = 100;
+            }
+            internalCloudCounter = 0;
+        }
+
+        var label = jQuery('#internalCloudName').val();
+        var c = new draw2d.shape.node.internalCloud(label);
+        c.width = 100;
+        c.height = 100;
+        console.log((internalCloudCounter * 60));
+        canvas.add(c, internalCloudInitialOffset + (internalCloudCounter * 80), (internalCloudCounter * 80));
+        internalCloudCounter = internalCloudCounter + 1;
+        hideOverlay('#add_bridge_form');
+    }
+
+    function addRectangle() {
+            var r = new draw2d.shape.basic.Rectangle(175, 100);
+            r.setBackgroundColor(null);
+            // simple algorithm to add icons to the screen without overlapping
+            lastX += 100;
+            lastY += 0;
+            iconCount += 1;
+
+            if (iconCount > iconWrapLimit) {
+                lastX = 50;
+                lastY = iconOffset;
+                iconCount = 1;
+                iconOffset += 110;
+            }
+            canvas.add(r, lastX, lastY);
+            r.toBack();
+    }
+
+    function addCircle() {
+            var r = new draw2d.shape.basic.Circle(175, 100);
+            r.setBackgroundColor(null);
+            // simple algorithm to add icons to the screen without overlapping
+            lastX += 100;
+            lastY += 0;
+            iconCount += 1;
+
+            if (iconCount > iconWrapLimit) {
+                lastX = 50;
+                lastY = iconOffset;
+                iconCount = 1;
+                iconOffset += 110;
+            }
+            canvas.add(r, lastX, lastY);
+            r.toBack();
+    }
+
+    function loadFigureEditor(figureId) {
+        var isConnection = false;
+
+        if (currentSelection !== "figureEditor") {
+            hideAllEditors();
+            manuallyTogglePanel('figureEditor', '');
+            currentSelection = "figureEditor";
+        }
+
+        jQuery('#selectedObject').val(figureId);
+        var instance = canvas.getFigure(figureId);
+        if (instance == null) {
+            console.log('getting line');
+            instance = canvas.getLine(figureId);
+            isConnection = true;
+        }
+
+        var figureColor = instance.getColor().hashString;
+        if (figureColor == null) {
+            figureColor = "none";
+        }
+        console.log(figureColor);
+        jQuery('#figureColor').val(figureColor);
+        jQuery('#figureStroke').val(instance.getStroke());
+        if (isConnection == false) {
+            jQuery('#figureBackgroundColor').val(instance.getBackgroundColor().hashString);
+        }
+    }
+
+    // are we editing an existing topology?
+    function isNewTopology() {
+        return true;
+    }
+
+    function resize_draw2d_canvas_view() {
+        var canvas_view = jQuery('#draw2d_canvas_view');
+        canvas_view.css('width', window.innerWidth - 20);
+        canvas_view.css('height', window.innerHeight - 200);
+    }
+
+    jQuery( window).resize(function() {
+        resize_draw2d_canvas_view();
+    });
+
+
+    // loads initial topology from json stored in the 'json' div
+    // also creates the instance array variable on page context
+    function loadTopology() {
+        var test = jQuery('#json').val();
+        if ((test != null) && (test != "")) {
+            console.log("test is :" + test + ":");
+            // var jsonTxt = JSON.stringify(test, null, 2);
+            var json = eval(test);
+            reader = new draw2d.io.json.Reader();
+            reader.unmarshal(canvas, json);
+        }
+    }
+
+    jQuery( window ).load(function() {
+        window.canvas = new draw2d.Canvas("draw2d_canvas", true);
+        // set default connection router here
+
+        var createConnection = function(v){
+           // return customized connection
+
+           var connection = new draw2d.Connection({
+             stroke: 3,
+             radius: 10,
+             color: "#445E88",
+             router: new draw2d.layout.connection.VertexRouter(),
+           });
+           return connection;
+        };
+
+        // install a custom connection create policy
+        //
+        canvas.installEditPolicy(  new draw2d.policy.connection.DragConnectionCreatePolicy({
+               createConnection: createConnection
+        }));
+
+        canvas.installEditPolicy(new draw2d.policy.canvas.FadeoutDecorationPolicy());
+        canvas.installEditPolicy(new draw2d.policy.canvas.SnapToGeometryEditPolicy(10));
+
+        canvas.installEditPolicy(new draw2d.policy.canvas.SnapToCenterEditPolicy());
+
+        //canvas.addSelectionListener(new topologySelectionListener());
+        var tsl = new topologySelectionListener();
+        canvas.on("select", function(emitter,event) {
+            if (event.figure != null) {
+                tsl.onSelectionChanged(event.figure);
+            }
+        });
+
+        resize_draw2d_canvas_view();
+
+        loadTopology();
+    });
+    </script>
+{% endblock %}
+{% block content %}
+    <table border="0">
+        <tbody>
+        <tr>
+            <td id="newTopologyMenu" colspan="2">
+                <ul>
+                        <li>
+                            <a href="#" onclick="javascript: showOverlay('#topology_save_form');">
+                                Save
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#" onclick="javascript: showOverlay('#add_vm_form');">
+                                Add VM
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#" onclick="javascript: showOverlay('#add_bridge_form');">
+                                Add Bridge
+                            </a>
+                        </li>
+                        <li id="drawing_tools">
+                            Drawing Tools
+                            <ul class="header_submenu">
+                                <li>
+                                    <a href="#" onclick="javascript: showOverlay('#add_label_form');">
+                                        Add Label
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="#" onclick="javascript: addCircle();">
+                                        Add Circle
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="#" onclick="javascript: addRectangle();">
+                                        Add Rectangle
+                                    </a>
+                                </li>
+                            </ul>
+                            <script>
+                                jQuery("#drawing_tools").hover(
+                                    function() {
+                                        $(this).children('.header_submenu').slideDown(150);
+                                    },
+                                    function() {
+                                        $(this).children('.header_submenu').slideUp(150);
+                                    }
+                                );
+                            </script>
+                        </li>
+                        <li>
+                            <a href="#"  title="Remove selected Object from Topology"
+                               onclick="javascript: deleteSelectedObject()">
+                                Delete Object
+                            </a>
+                        </li>
+                </ul>
+            </td>
+        </tr>
+        </tbody>
+        <tbody  id="figureEditor" style="display: none;">
+            <tr>
+                <td>
+                    <ul>
+                        <li>
+                            Line Color:
+                            &nbsp;
+                            <input type="color" id="figureColor" value="#445E88"
+                               onchange="javascript: setFigureColor(this.value);"/>
+                        </li>
+                        <li>
+                            Stoke:
+                            &nbsp;
+                            <select id="figureStroke"
+                                    onchange="javascript: setFigureStroke(this.value);">
+                                <option value="0">0</option>
+                                <option value="1">1</option>
+                                <option value="2">2</option>
+                                <option value="3">3</option>
+                   f             <option value="4">4</option>
+                                <option value="5">5</option>
+                            </select>
+                        </li>
+                        <li>
+                           Background Color:
+                           &nbsp;
+                            <input type="color" id="figureBackgroundColor" value="#445E88"
+                                   onchange="javascript: setFigureBackgroundColor(this.value);"/>
+                        </li>
+                        <li>
+                            <a href="#" onclick="javascript: hideSelection()">X</a>
+                        </li>
+                    </ul>
+                </td>
+            </tr>
+        </tbody>
+
+        <tr>
+            <td style="vertical-align: top; padding-left: 2px; background-color: #fff;">
+                <div id="draw2d_canvas_view" style="height: 900px; width: 1300px; overflow: scroll">
+                    <div id="draw2d_canvas" style="background-image: url({% static 'images/grid_lite.png' %});
+                    background-repeat: repeat;
+                    width:4000px;
+                    height:4000px;
+                    position:relative;
+                    "></div>
+                </div>
+            </td>
+        </tr>
+    </table>
+
+    <div id="topology_save_form" style="display:none">
+        <form method="post" id="topoForm" name="topoForm"
+            action="{% url 'topologies:create' %}" method="POST">
+        <table>
+            <tr>
+                <td colspan="2" class="screen-overlay-menu">
+                    <a href="#" onclick="javascript: hideOverlay('#topology_save_form')">X</a>
+                </td>
+            </tr>
+            <tr>
+                <td colspan="2">
+                    <h2>Save Topology</h2>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                  Name
+                </td>
+                <td>
+                  <input type="text" size="30" maxsize="30" name="name" id="name"
+                         onblur="javascript: clean_string_first_alpha(this)"
+                         value=""/>
+                  <input type="hidden" name="json" id="json" value="{{ topo.json }}"/>
+                  <input type="hidden" id="selectedObject" value="0">
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  Description
+                </td>
+                <td>
+                  <textarea rows="3" id="description" name="description"></textarea>
+                </td>
+              </tr>
+              <tr>
+                <td colspan="2" style="border-bottom: 0px solid #fff">
+
+                  <input type="button" name="submit_button" id="submit_button"
+                    value="Save" onclick="javascript: saveTopology();"/>
+
+                </td>
+              </tr>
+        </table>
+        </form>
+    </div>
+    <div id="add_vm_form" style="display:none">
+        <table>
+            <tbody>
+                <tr>
+                    <td colspan="2" class="screen-overlay-menu">
+                        <a href="#" onclick="javascript: hideOverlay('#add_vm_form')">X</a>
+                    </td>
+                </tr>
+                <tr>
+                    <td colspan="2">
+                        <h2>Add VM</h2>
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        Authentication
+                    </td>
+                    <td>
+                        <input type="text" size="15" maxsize="15" style="width: 75px;"
+                               name="topoIconUser" id="topoIconUser" value="root" title="Username"/>
+                        &nbsp;
+                        <input type="text" size="15" maxsize="15"  style="width: 75px;"
+                               name="topoIconPass" id="topoIconPass" value="{{ global_config.default_instance_password }}"
+                               onblur="javascript: checkPass(this.value);" title="Password"/>
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        Instance Name
+                    </td>
+                    <td>
+                        <input type="text" size="15" maxlength="32" name="topoIconName" id="topoIconName" value=""
+                               onblur="javascript: clean_string_no_space(this);"/>
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        Base Image
+                    </td>
+                    <td>
+                        <select name="topoIconImageSelect" id="topoIconImageSelect" onchange="javascript: setImageType();">
+                            <option value="0">Choose Image</option>
+                            <!-- not a better way to do this? -->
+                            {% for i in image_list %}
+                            <option value="{{ i.id }}:{{i.type}}">{{ i.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                </tr>
+            </tbody>
+            <tbody id="addInstanceTbodyAdvanced">
+                <tr>
+                    <td>
+                        Machine Properties
+                    </td>
+                    <td>
+                        vCPU:
+                        <select name="topoIconCpu" id="topoIconCpu">
+                            <option value="1">1</option>
+                            <option value="2" selected>2</option>
+                            <option value="4">4</option>
+                            <option value="8">8</option>
+                        </select>
+                        vRAM:
+                        <select name="topoIconRam" id="topoIconRam">
+                            <option value="512">512</option>
+                            <option value="768">768</option>
+                            <option value="1024">1024</option>
+                            <option value="2048" selected>2048</option>
+                            <option value="4096">4096</option>
+                            <option value="8192">8192</option>
+                            <option value="16384">16384</option>
+                        </select> MB
+                    </td>
+                </tr>
+            </tbody>
+            <tbody id="addInstanceTbodyResize" style="display: none">
+                <tr>
+                    <td>
+                        Thick Provision and resize with:
+                    </td>
+                    <td>
+                        <input type="text" size="3" name="topoIconResize" id="topoIconResize" value="0"
+                               onblur="javascript: numeric_only(this);"
+                               style="width: 100px;"
+                               title="Will create a thick privisioned image and resize
+                                            with an additional amount of space"/> GB
+                    </td>
+                </tr>
+            </tbody>
+            <tbody id="addInstanceTbodyCloudInit" style="display: none">
+                <tr>
+                    <td>
+                        Cloud-Init Script
+                    </td>
+                    <td>
+                        <select name="topoIconScriptSelect" id="topoIconScriptSelect">
+                            <option value="0">Default cloud-init script</option>
+                            <!-- not a better way to do this? -->
+                            {% for s in script_list %}
+                            <option value="{{ s.id }}">{{ s.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        Cloud-Init Param
+                    </td>
+                    <td>
+                        <input type="text" size="15" name="topoIconScriptParam" id="topoIconScriptParam" value="0"
+                               onblur="javascript: clean_string_no_special(this);"/>
+                    </td>
+                </tr>
+            </tbody>
+            <tbody id="addInstanceTbodySecondaryDisk" style="display: none">
+            <tr>
+                <td title="Only useful for vmx > 14.2">
+                    Secondary Disk
+                </td>
+                <td>
+                    <select name="topoIconSecondaryDisk" id="topoIconSecondaryDisk">
+
+                    </select>
+                </td>
+            </tr>
+            </tbody>
+            <tbody id="addInstanceTbodyVFPC" style="display: none">
+            <tr>
+                <td title="Only useful for vmx > 14.2">
+                    Virtual PFE
+                </td>
+                <td>
+                    <select name="topoIconImageVFPCSelect" id="topoIconImageVFPCSelect"
+                            onchange="javascript: setCompanionParams(this)">
+                    </select>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    vPFE vCPU
+                </td>
+                <td>
+                    <select name="topoIconVFPCCpu" id="topoIconVFPCCpu">
+                        <option value="1">1</option>
+                        <option value="2">2</option>
+                        <option value="3" selected>3</option>
+                        <option value="4">4</option>
+                        <option value="8">8</option>
+                    </select>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    vPFE vRAM
+                </td>
+                <td>
+                    <select name="topoIconVFPCRam" id="topoIconVFPCRam">
+                        <option value="512">512</option>
+                        <option value="768">768</option>
+                        <option value="1024">1024</option>
+                        <option value="2048">2048</option>
+                        <option value="4096">4096</option>
+                         <option value="6144">6144</option>
+                        <option value="8192" selected>8192</option>
+                        <option value="16384">16384</option>
+                    </select> MB
+                    <input type="hidden" id="topoIconVFPCJs" value=""/>
+                    <input type="hidden" id="topoIconVFPCType" value=""/>
+                </td>
+            </tr>
+            </tbody>
+            <tbody>
+                <tr>
+                    <td colspan="2">
+                        <input type="hidden" name="topoIconType" id="topoIconType" value=""/>
+                        <input type="hidden" name="topoIconImage" id="topoIconImage" value=""/>
+                        <input type="button" onclick="javascript: addIconAndClose();" value="Add and Close"/>
+                        &nbsp;
+                        <input type="button" onclick="javascript: addIcon();" value="Add Another Instance"/>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    <div id="add_bridge_form" style="display:none">
+        <table>
+            <tr>
+                <td colspan="2" class="screen-overlay-menu">
+                    <a href="#" onclick="javascript: hideOverlay('#add_bridge_form')">X</a>
+                </td>
+            </tr>
+            <tr>
+                <td colspan="2">
+                    <h2>Add Bridge</h2>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    External Access:
+                </td>
+                <td>
+                    <input type="text" style="width: 150px;" id="externalCloudName" value="{{ external_bridge }}"/>
+            &nbsp;
+                    <input type="button" value="Add External Bridge" title="Add Existing Bridge"
+                           onclick="javascript: addExternalCloud()"/>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    Private Network:
+                </td>
+                <td>
+                    <input type="text" style="width: 150px;" id="internalCloudName" value="Private 1"/>
+                    &nbsp;
+                    <input type="button" value="Add Private Bridge" title="Add private network"
+                           onclick="javascript: addInternalCloud()"/>
+                </td>
+            </tr>
+        </table>
+    </div>
+    <div id="add_label_form" style="display:none;">
+        <table>
+            <tr>
+                <td colspan="2" class="screen-overlay-menu">
+                    <a href="#" onclick="javascript: hideOverlay('#add_label_form')">X</a>
+                </td>
+            </tr>
+            <tr>
+                <td colspan="2">
+                    <h2>Add Text Label</h2>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    Text:
+                </td>
+                <td>
+                    <input type="text" id="newLabel"/>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    Font Size:
+                </td>
+                <td>
+                    <select id="newLabelFontSize">
+                        <option value="8">8</option>
+                        <option value="10">10</option>
+                        <option value="12">12</option>
+                        <option value="14">14</option>
+                        <option value="16" selected>16</option>
+                        <option value="18">18</option>
+                        <option value="20">20</option>
+                        <option value="22">22</option>
+                        <option value="24">24</option>
+                        <option value="26">26</option>
+                        <option value="28">28</option>
+                        <option value="30">30</option>
+                        <option value="40">40</option>
+                        <option value="48">48</option>
+                    </select>
+                </td>
+            </tr>
+            <tr>
+                <td colspan="2">
+                    <input type="button" value="Add Label" onclick="javascript: addLabel()"/>
+                </td>
+            </tr>
+        </table>
+    </div>
+    <div id="jsonDebug" style="display: none;">
+        <table>
+            <tr>
+                <th>
+                    Debug Panel
+                </th>
+            </tr>
+            <tr>
+                <td colspan="2" class="screen-overlay-menu">
+                    <a href="#" onclick="javascript: hideOverlay('#jsonDebug')">X</a>
+                </td>
+            <tr>
+                <td>
+                    <textarea id="debug" cols="1" rows="5"></textarea>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <input type="button" onclick="javascript: updateDebug();" value="Update JSON"
+                           title="Manually modify JSON object">
+                </td>
+            </tr>
+        </table>
+    </div>
+{% endblock %}

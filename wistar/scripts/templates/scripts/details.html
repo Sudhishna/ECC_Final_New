@@ -1,0 +1,61 @@
+
+{% extends "base.html" %}
+{% block content %}
+<div class="centered_box_75">
+
+    <table>
+        <tr>
+            <td>
+                Name
+            </td>
+            <td>
+                {{ script.name }}
+            </td>
+        </tr>
+        <tr>
+            <td>
+                Description
+            </td>
+            <td>
+                {{ script.description }}
+            </td>
+        </tr>
+         <tr>
+            <td>
+                Type
+            </td>
+            <td>
+                {{ script.type }}
+            </td>
+        </tr>
+        <tr>
+            <td>
+                Destination
+            </td>
+            <td>
+                {{ script.destination }}
+            </td>
+        </tr>
+        <tr>
+            <td>
+                Detail
+            </td>
+            <td>
+            <pre>
+{{ script.script }}
+            </pre>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                Options
+            </td>
+            <td>
+                <a href='/scripts/deleteScript/{{ script.id }}'>Delete</a>
+                &nbsp;
+                <a href='/scripts/editScript/{{ script.id }}'>Edit</a>
+            </td>
+        </tr>
+    </table>
+</div>
+{% endblock %}

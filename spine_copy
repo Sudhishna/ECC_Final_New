@@ -1,0 +1,51 @@
+protocols {
+    evpn {
+        vni-options {
+            vni {{ vlanid }} {
+                vrf-target export target:1:{{ vlanid }};
+            }
+        }
+        encapsulation vxlan;
+        extended-vni-list [ {{ vlanid }} ];
+    }
+}
+policy-options {
+    policy-statement EVPN-IMPORT {
+        term ESI {
+            from community esi;
+            then accept;
+        }
+        term vni{{ vlanid }} {
+            from community vni{{ vlanid }};
+            then accept;
+        }
+    }
+    community esi members target:1:100;
+    community vni{{ vlanid }} members target:1:{{ vlanid }};
+}
+interfaces {
+    irb {
+        unit {{ vlanid }} {
+            virtual-gateway-accept-data;
+            family inet {
+                address {{ vlanid }}.{{ vlanid }}.{{ vlanid }}.{{ vlanid }}/24 {
+                    virtual-gateway-address {{ vlanid }}.{{ vlanid }}.{{ vlanid }}.100;
+                }
+            }
+        }
+    }
+}
+routing-instances {
+    VRF1 {
+        interface irb.{{ vlanid }};
+    }
+}
+vlans {
+    vlan{{ vlanid }} {
+        vlan-id {{ vlanid }};
+        l3-interface irb.{{ vlanid }};
+        vxlan {
+            vni {{ vlanid }};
+        }
+    }
+}

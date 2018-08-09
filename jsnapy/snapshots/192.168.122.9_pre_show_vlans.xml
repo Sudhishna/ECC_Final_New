@@ -1,0 +1,14 @@
+<l2ng-l2ald-vlan-instance-information style="brief">
+<l2ng-l2ald-vlan-instance-group>
+<l2ng-l2rtb-brief-summary/>
+<l2ng-l2rtb-name>default-switch</l2ng-l2rtb-name>
+<l2ng-l2rtb-vlan-name>vlan10</l2ng-l2rtb-vlan-name>
+<l2ng-l2rtb-vlan-tag>10</l2ng-l2rtb-vlan-tag>
+<l2ng-l2rtb-vlan-member>
+<l2ng-l2rtb-vlan-member-interface>ae2.0*</l2ng-l2rtb-vlan-member-interface>
+</l2ng-l2rtb-vlan-member>
+<l2ng-l2rtb-vlan-member>
+<l2ng-l2rtb-vlan-member-interface>xe-0/0/2.0*</l2ng-l2rtb-vlan-member-interface>
+</l2ng-l2rtb-vlan-member>
+</l2ng-l2ald-vlan-instance-group>
+</l2ng-l2ald-vlan-instance-information>

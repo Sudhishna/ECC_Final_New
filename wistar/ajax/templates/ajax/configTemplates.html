@@ -1,0 +1,60 @@
+{% load staticfiles %}
+<table class="centered_box">
+    <tr>
+        <td colspan="4" style="text-align: right"><a href="#" onclick="javascript: closeOverlay()">Close</a></td>
+    </tr>
+    <tr>
+        <th colspan="4">Push Config Template to device: {{ ip }}</th>
+    </tr>
+    {% if template_list|length == 0 %}
+    <tr>
+        <td>
+            No Templates defined
+        </td>
+    </tr>
+    {% endif %}
+    {% for t in template_list %}
+    <tr>
+        <td>
+            {{ t.name }}
+        </td>
+        <td>
+            {{ t.description }}
+        </td>
+        <td>
+            {{ t.modified}}
+        </td>
+        <td>
+            <input type="button" onclick="javascript: applyConfigurationTemplate({{ t.id }});" value="Apply"/>
+        </td>
+    </tr>
+    {% endfor %}
+    <tr>
+        <td colspan="4" style="text-align: right">
+            <a href="/scripts">Manage Saved Configuration Templates</a>
+        </td>
+    </tr>
+</table>
+<table  class="centered_box">
+    <tr>
+        <th colspan="4">Apply config to device: {{ ip }}</th>
+    </tr>
+    <tr>
+        <td colspan="4">
+            <textarea cols="20" rows="10" id="junosSetConfigInput"></textarea>
+        </td>
+    </tr>
+    <tr>
+         <td style="vertical-align: middle;">
+            In-place Edit: Replace: <input type="text" id="applyConfigReplace" style="width: 150px;"/> with: <input type="text" id="applyConfigReplaceWith" style="width: 150px;"/>
+             &nbsp;
+             <input type="button" onclick="javascript: applyJunosSetConfigurationReplace();" value="Replace"/>
+        </td>
+        <td>
+            <input type="button" onclick="javascript: applyJunosSetConfiguration('junosSetConfigInput');" value="Apply Configuration"/>
+        </td>
+    </tr>
+</table>
+
+
+

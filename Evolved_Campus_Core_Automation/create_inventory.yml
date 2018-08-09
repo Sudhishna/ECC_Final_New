@@ -1,0 +1,17 @@
+- name: Copy Inventory
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  vars:
+     new_inventory: "{{ lookup('file', '/Users/ssendhil/ECC_Automation/.vagrant/provisioners/ansible/inventory/vagrant_ansible_inventory') }}"
+     existing_inventory: "{{ lookup('file', 'inventory/inventory') }}"
+
+  tasks:
+     - command: echo "{{ new_inventory }} {{ existing_inventory }}"
+       register: inventory
+     - debug: msg="{{ inventory.stdout }}"
+
+     - copy:
+         content: "{{ inventory.stdout }}"
+         dest: inventory/inventory
+

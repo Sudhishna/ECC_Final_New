@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% load staticfiles %}
+{% block content %}
+<div class="centered_box_75">
+
+<h2>Imported Disk Images</h2>
+<ul class="messages">
+    {% for message in messages %}
+    <li {% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
+    {% endfor %}
+</ul>
+<table>
+    <tr>
+        <th>Name</th>
+        <th>Description</th>
+        <th>Options</th>
+    </tr>
+    {% for image in image_list %}
+    <tr>
+        <td>
+            <a href='{{ image.id }}'>{{ image.name }}</a>
+        </td>
+        <td>
+            {{ image.description }}
+        </td>
+        <td style="width: 100px;">
+            <div id="menu_{{ image.id }}" style="position: absolute; margin-top: -6px;">
+                <img src="{% static 'images/more.png' %}" width="12px" height="12px"/>&nbsp;
+                <ul class="submenu">
+                    <li>
+                        <a href="{{ image.id }}">View Details</a>
+                    </li>
+                    <li>
+                        <a href="edit/{{ image.id }}">Edit</a>
+                    </li>
+                    <li>
+                        <a href="delete/{{ image.id }}">Delete</a>
+                    </li>
+                    {% if global_config.deployment_backend = "kvm" %}
+                    <li>
+                        <a href="{% static image.file %}">Download</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </div>
+            <script>
+                jQuery("#menu_{{ image.id }}").hover(
+                    function() {
+                        $(this).children('.submenu').slideDown(150);
+                    },
+                    function() {
+                        $(this).children('.submenu').slideUp(150);
+                    }
+                );
+            </script>
+        </td>
+    </tr>
+    {% endfor %}
+</table>
+
+</div>
+{% endblock %}

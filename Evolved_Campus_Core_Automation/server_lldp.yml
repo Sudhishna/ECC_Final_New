@@ -1,0 +1,46 @@
+---
+- name: Get Ansible to work on bare Ubuntu 16.04
+  hosts: campus-1-server,campus-2-server
+  gather_facts: no
+  tasks:
+    - name: 'install python2'
+      raw: apt -y install python-minimal python-simplejson
+      become: yes
+    - name: "Install Packages"
+      package:
+        name: "{{ item }}"
+      with_items:
+        - lldpd
+        - snmpd
+        - snmp
+      become: yes
+    - name: Restart service httpd, in all cases
+      service:
+        name: lldpd
+        state: restarted
+      become: yes
+    - name: Restart service httpd, in all cases
+      service:
+        name: snmpd
+        state: restarted
+      become: yes
+    - blockinfile: |
+        dest=/etc/network/interfaces.d/50-cloud-init.cfg
+        content="\n\nauto ens4\niface ens4 inet static\naddress 1.1.1.1\nnetmask 255.255.255.0\nnetwork 1.1.1.0\nbroadcast 1.1.1.255\ngateway 1.1.1.100'"
+      become: yes
+
+    - name: Restart the new network interface
+      shell: "ifdown --ignore-errors ens3 && ifup --ignore-errors ens3"
+      become: yes
+    - name: Restart the new network interface
+      shell: "ip addr flush dev ens4"
+      become: yes
+    - name: Restart the new network interface
+      shell: "ifdown --ignore-errors ens4 && ifup --ignore-errors ens4"
+      become: yes
+    - name: Restart the new network interface
+      shell: "ifdown --ignore-errors ens4 && ifup --ignore-errors ens4"
+      become: yes
+    - shell: hostname
+      register: ps
+    - debug: var=ps.stdout,inventory_hostname
